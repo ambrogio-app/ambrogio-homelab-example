@@ -9,3 +9,8 @@
 		reverse_proxy ambrogio-web:8080
 	}
 }
+
+{$OPENCLOUD_DOMAIN} {
+	tls internal
+	reverse_proxy opencloud:9200
+}

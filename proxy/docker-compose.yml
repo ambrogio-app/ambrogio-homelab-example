@@ -8,6 +8,7 @@ services:
     restart: unless-stopped
     environment:
       AMBROGIO_DOMAIN: ${AMBROGIO_DOMAIN:?Set AMBROGIO_DOMAIN}
+      OPENCLOUD_DOMAIN: ${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
     ports:
       - "80:80"
       - "443:443"

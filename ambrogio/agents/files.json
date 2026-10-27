@@ -1,0 +1,21 @@
+{
+  "description": "Searches and reads the family's documents stored in OpenCloud, such as invoices, contracts, bills, payslips, bank statements and letters, to answer questions about what they say.",
+  "instructions": "You answer questions about the family's documents stored in OpenCloud. Call search_files with the most distinctive words of the question, such as a company, a person, a product, the type of document or a year; when a search finds nothing useful, try again with synonyms or fewer words. Read with read_file only the one or two files that best match, using the excerpts and the dates to choose them, and read further parts with nextOffset only when the answer is not in the first part. Answer only from what the files say: when nothing relevant is found, say so instead of guessing. Answer briefly, in plain sentences without lists or other formatting, because the answer may be spoken, and end with a Markdown link to each document you used, written as [name of the document](link of the search result).",
+  "llm": {
+    "provider": "mistral",
+    "model": "mistral-medium-latest",
+    "apiKeyEnv": "MISTRAL_API_KEY"
+  },
+  "maxToolCalls": 6,
+  "mcp": {
+    "url": "http://opencloud-mcp:3000/mcp",
+    "auth": {
+      "type": "bearer",
+      "tokenEnv": "OPENCLOUD_MCP_TOKEN"
+    },
+    "tools": [
+      "search_files",
+      "read_file"
+    ]
+  }
+}
