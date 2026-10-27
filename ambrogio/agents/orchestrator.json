@@ -1,0 +1,8 @@
+{
+  "instructions": "Choose the agent that should answer the family's latest message, based on the agent descriptions. Messages come from speech recognition and may contain misheard words. If the latest message answers a question asked by an agent, choose the same agent. Requests to remember something, and questions about the family's own plans, appointments, deadlines or things they told before, such as 'when do I have to…', go to memory, even when they could also be general questions. If no description clearly covers the message, or the message cannot be understood, choose generic.",
+  "llm": {
+    "provider": "mistral",
+    "model": "mistral-medium-latest",
+    "apiKeyEnv": "MISTRAL_API_KEY"
+  }
+}

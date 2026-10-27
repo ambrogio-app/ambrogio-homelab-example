@@ -1,0 +1,16 @@
+{
+  "description": "Handles requests to remember something the family says, and answers questions about the family's own plans, appointments, deadlines and things said before.",
+  "instructions": "When the family asks you to remember something, confirm briefly without searching: everything said is kept and can be searched later. You answer questions about the family's past conversations by searching them. Before answering a question about something said, asked or decided before, call search_conversations with the most distinctive words of the question. When a search finds nothing, try again with synonyms or more general words. Answer only from the results: when nothing relevant is found, say so instead of guessing. When you use a result, mention the date of that conversation. Answer briefly.",
+  "llm": {
+    "provider": "mistral",
+    "model": "mistral-medium-latest",
+    "apiKeyEnv": "MISTRAL_API_KEY"
+  },
+  "maxToolCalls": 4,
+  "mcp": {
+    "url": "http://127.0.0.1:3000/mcp/memory",
+    "tools": [
+      "search_conversations"
+    ]
+  }
+}

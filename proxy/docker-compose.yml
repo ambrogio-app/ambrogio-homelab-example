@@ -1,0 +1,28 @@
+# Reverse proxy for the browsers of the home. /api/* (HTTP and WebSocket) goes to the backend, everything
+# else to the web chat, so both share one origin. The certificate comes from Caddy's local authority:
+# install its root certificate on the family's devices, or replace `tls internal` with your own setup.
+services:
+  caddy:
+    image: caddy:2.10
+    container_name: caddy
+    restart: unless-stopped
+    environment:
+      AMBROGIO_DOMAIN: ${AMBROGIO_DOMAIN:?Set AMBROGIO_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - proxy
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  proxy:
+    name: homelab_proxy
+    external: true

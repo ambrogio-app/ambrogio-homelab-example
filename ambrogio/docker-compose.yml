@@ -1,0 +1,88 @@
+# Ambrogio: backend, its PostgreSQL archive, the web chat and the weather MCP server.
+services:
+  ambrogio:
+    image: ghcr.io/ambrogio-app/ambrogio-backend:${AMBROGIO_VERSION:?Set AMBROGIO_VERSION}
+    container_name: ambrogio
+    restart: unless-stopped
+    depends_on:
+      ambrogio-postgres:
+        condition: service_healthy
+    # The backend ends its own shutdown within 10 seconds; give it longer before Docker sends SIGKILL.
+    stop_grace_period: 15s
+    # Published on the home network for the voice satellites; browsers use the proxy.
+    ports:
+      - "3000:3000"
+    # Home Assistant runs on the host network: the backend reaches it as host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      AMBROGIO_ENV: production
+      AMBROGIO_HTTP_HOST: 0.0.0.0
+      AMBROGIO_HTTP_PORT: "3000"
+      AMBROGIO_PUBLIC_HTTPS: "false"
+      AMBROGIO_ALLOWED_ORIGINS: https://${AMBROGIO_DOMAIN:?Set AMBROGIO_DOMAIN}
+      AMBROGIO_DATABASE_URL: postgres://ambrogio:${AMBROGIO_DATABASE_PASSWORD:?Set AMBROGIO_DATABASE_PASSWORD}@ambrogio-postgres:5432/ambrogio
+      AMBROGIO_LANGUAGE: ${AMBROGIO_LANGUAGE:?Set AMBROGIO_LANGUAGE}
+      AMBROGIO_TIME_ZONE: ${AMBROGIO_TIME_ZONE:?Set AMBROGIO_TIME_ZONE}
+      AMBROGIO_VOICE_LANGUAGES: en,it
+      AMBROGIO_VOICE_EN_STT_MODEL_DIR: /opt/ambrogio/models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11
+      AMBROGIO_VOICE_EN_MODEL_DIR: /opt/ambrogio/voices/vits-piper-en_US-kristin-medium
+      AMBROGIO_VOICE_IT_STT_MODEL_DIR: /opt/ambrogio/models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11
+      AMBROGIO_VOICE_IT_MODEL_DIR: /opt/ambrogio/voices/vits-piper-it_IT-paola-medium
+      # The credentials named by the agent files.
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:?Set MISTRAL_API_KEY}
+      HOME_ASSISTANT_TOKEN: ${HOME_ASSISTANT_TOKEN:?Set HOME_ASSISTANT_TOKEN}
+      OPEN_METEO_MCP_TOKEN: ${OPEN_METEO_MCP_TOKEN:?Set OPEN_METEO_MCP_TOKEN}
+    volumes:
+      - ./agents:/etc/ambrogio/agents:ro
+    networks:
+      - proxy
+      - ambrogio-internal
+
+  # The conversation archive. pgvector is included in the image; the archive does not use it yet.
+  ambrogio-postgres:
+    image: pgvector/pgvector:pg18
+    container_name: ambrogio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ambrogio
+      POSTGRES_DB: ambrogio
+      POSTGRES_PASSWORD: ${AMBROGIO_DATABASE_PASSWORD:?Set AMBROGIO_DATABASE_PASSWORD}
+    volumes:
+      - ambrogio-database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username ambrogio --dbname ambrogio"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - ambrogio-internal
+
+  # Weather for the weather agent, reachable only on the internal network.
+  open-meteo-mcp:
+    image: ghcr.io/cmer81/open-meteo-mcp:2.5.1
+    container_name: open-meteo-mcp
+    restart: unless-stopped
+    environment:
+      API_KEY: ${OPEN_METEO_MCP_TOKEN:?Set OPEN_METEO_MCP_TOKEN}
+    networks:
+      - ambrogio-internal
+
+  # The optional web chat: static files served by nginx. config.json tells it where the backend is.
+  ambrogio-web:
+    image: ghcr.io/ambrogio-app/ambrogio-web:${AMBROGIO_WEB_VERSION:?Set AMBROGIO_WEB_VERSION}
+    container_name: ambrogio-web
+    restart: unless-stopped
+    volumes:
+      - ./web/config.json:/usr/share/nginx/html/config.json:ro
+    networks:
+      - proxy
+
+volumes:
+  ambrogio-database:
+
+networks:
+  proxy:
+    name: homelab_proxy
+    external: true
+  ambrogio-internal:

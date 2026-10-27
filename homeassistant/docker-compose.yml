@@ -1,0 +1,17 @@
+# Home Assistant on the host network, so that it can discover the devices of the home. Ambrogio uses its
+# "Model Context Protocol Server" integration at http://host.docker.internal:8123/api/mcp.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    privileged: true
+    environment:
+      TZ: ${AMBROGIO_TIME_ZONE:?Set AMBROGIO_TIME_ZONE}
+    volumes:
+      - homeassistant-config:/config
+      - /run/dbus:/run/dbus:ro
+    network_mode: host
+
+volumes:
+  homeassistant-config:

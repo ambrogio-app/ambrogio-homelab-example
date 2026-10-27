@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# check — the example still starts: every compose file is valid with the variables of .env.example, the JSON
+# files parse, and the backend release named in .env.example loads the agent files as they are. Requires Docker.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# .env.example with a placeholder in every empty value, as a filled-in .env would be.
+env_file="$(mktemp)"; trap 'rm -f "$env_file"' EXIT
+sed -E 's/^([A-Z_]+)=$/\1=placeholder/' .env.example > "$env_file"
+
+docker network inspect homelab_proxy >/dev/null 2>&1 || docker network create homelab_proxy >/dev/null
+for compose in proxy ambrogio homeassistant; do
+  docker compose --env-file "$env_file" -f "$compose/docker-compose.yml" config --quiet
+  echo "ok $compose/docker-compose.yml"
+done
+cp satellite/satellite.env.example satellite/satellite.env
+docker compose -f satellite/docker-compose.yml config --quiet && echo "ok satellite/docker-compose.yml"
+rm satellite/satellite.env
+
+for json in ambrogio/agents/*.json ambrogio/web/config.json; do
+  node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$json"
+done
+echo "ok JSON files"
+
+# The agent loader of the backend release in .env.example, with placeholder credentials.
+version="$(sed -n 's/^AMBROGIO_VERSION=//p' .env.example)"
+docker run --rm --entrypoint node \
+  --mount "type=bind,src=$PWD/ambrogio/agents,dst=/etc/ambrogio/agents,readonly" \
+  --env MISTRAL_API_KEY=placeholder --env HOME_ASSISTANT_TOKEN=placeholder --env OPEN_METEO_MCP_TOKEN=placeholder \
+  "ghcr.io/ambrogio-app/ambrogio-backend:$version" --input-type=module -e '
+    const { loadAgentConfigs } = await import("/workspace/apps/server/dist/runtime/agent-config.js");
+    const agents = await loadAgentConfigs("/etc/ambrogio/agents", process.env);
+    console.log("ok agents for backend '"$version"': " + agents.specialists.map(agent => agent.id).join(", "));'

@@ -1,0 +1,11 @@
+{$AMBROGIO_DOMAIN} {
+	tls internal
+
+	# The backend answers the API and the conversation sessions; /mcp/memory stays inside the home network.
+	handle /api/* {
+		reverse_proxy ambrogio:3000
+	}
+	handle {
+		reverse_proxy ambrogio-web:8080
+	}
+}

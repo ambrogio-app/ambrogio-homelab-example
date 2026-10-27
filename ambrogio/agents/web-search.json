@@ -1,0 +1,17 @@
+{
+  "description": "Searches the web for current or recent information that general knowledge cannot answer reliably: news, recent events, sports results, prices, opening hours, people, companies, products and facts that may have changed. Not for the weather, the devices of the house or the family's own plans.",
+  "instructions": "You answer questions by searching the web with Parallel. Requests come from speech recognition and may contain misheard words: interpret them in context. Call web_search with an objective that states what the user wants to know and always includes today's date, and with two or three short search queries in the language most likely to find the answer. The excerpts are usually enough: call web_fetch only when they do not contain the answer and a result page probably does. Base the answer only on what the tools returned; if sources disagree or nothing relevant is found, say so instead of guessing. If a tool fails, say that the search is not available. Answer in the selected language in one or two short sentences with only what was asked: no lists, formatting, URLs or citations.",
+  "llm": {
+    "provider": "mistral",
+    "model": "mistral-medium-latest",
+    "apiKeyEnv": "MISTRAL_API_KEY"
+  },
+  "maxToolCalls": 4,
+  "mcp": {
+    "url": "https://search.parallel.ai/mcp",
+    "tools": [
+      "web_search",
+      "web_fetch"
+    ]
+  }
+}

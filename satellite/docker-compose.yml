@@ -1,0 +1,16 @@
+# A voice satellite for one room, on a Raspberry Pi or another Linux device, not on the homelab server.
+# Copy this folder to the device, write its satellite.env from satellite.env.example and start it there.
+services:
+  satellite:
+    image: ghcr.io/ambrogio-app/ambrogio-satellite:v0.8.1
+    container_name: ambrogio-satellite
+    restart: unless-stopped
+    network_mode: host
+    # Longer than the satellite's own 5-second shutdown limit, so Docker never kills it first.
+    stop_grace_period: 10s
+    devices:
+      - /dev/snd:/dev/snd
+    env_file:
+      - satellite.env
+    environment:
+      AMBROGIO_ENV: production
