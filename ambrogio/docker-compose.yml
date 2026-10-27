@@ -1,4 +1,4 @@
-# Ambrogio: backend, its PostgreSQL archive, the web chat and the weather MCP server.
+# Ambrogio: backend, its PostgreSQL archive and the web chat.
 services:
   ambrogio:
     image: ghcr.io/ambrogio-app/ambrogio-backend:${AMBROGIO_VERSION:?Set AMBROGIO_VERSION}
@@ -37,6 +37,7 @@ services:
       - ./agents:/etc/ambrogio/agents:ro
     networks:
       - proxy
+      - mcp
       - ambrogio-internal
 
   # The conversation archive. pgvector is included in the image; the archive does not use it yet.
@@ -58,16 +59,6 @@ services:
     networks:
       - ambrogio-internal
 
-  # Weather for the weather agent, reachable only on the internal network.
-  open-meteo-mcp:
-    image: ghcr.io/cmer81/open-meteo-mcp:2.5.1
-    container_name: open-meteo-mcp
-    restart: unless-stopped
-    environment:
-      API_KEY: ${OPEN_METEO_MCP_TOKEN:?Set OPEN_METEO_MCP_TOKEN}
-    networks:
-      - ambrogio-internal
-
   # The optional web chat: static files served by nginx. config.json tells it where the backend is.
   ambrogio-web:
     image: ghcr.io/ambrogio-app/ambrogio-web:${AMBROGIO_WEB_VERSION:?Set AMBROGIO_WEB_VERSION}
@@ -84,5 +75,9 @@ volumes:
 networks:
   proxy:
     name: homelab_proxy
+    external: true
+  # The MCP servers that run in containers, such as open-meteo-mcp.
+  mcp:
+    name: homelab_mcp
     external: true
   ambrogio-internal:

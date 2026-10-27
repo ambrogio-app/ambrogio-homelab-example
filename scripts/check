@@ -8,8 +8,10 @@ cd "$(dirname "$0")/.."
 env_file="$(mktemp)"; trap 'rm -f "$env_file"' EXIT
 sed -E 's/^([A-Z_]+)=$/\1=placeholder/' .env.example > "$env_file"
 
-docker network inspect homelab_proxy >/dev/null 2>&1 || docker network create homelab_proxy >/dev/null
-for compose in proxy ambrogio homeassistant; do
+for network in homelab_proxy homelab_mcp; do
+  docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
+done
+for compose in proxy ambrogio open-meteo-mcp homeassistant; do
   docker compose --env-file "$env_file" -f "$compose/docker-compose.yml" config --quiet
   echo "ok $compose/docker-compose.yml"
 done

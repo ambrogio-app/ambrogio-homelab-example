@@ -6,7 +6,8 @@ file per service, as a starting point for your own homelab:
 | Folder | Runs | Where |
 |---|---|---|
 | `proxy/` | Caddy: `/api/*` to the backend, everything else to the web chat | homelab server |
-| `ambrogio/` | backend, its PostgreSQL archive, the web chat and the Open-Meteo MCP server for the weather agent | homelab server |
+| `ambrogio/` | backend, its PostgreSQL archive and the web chat | homelab server |
+| `open-meteo-mcp/` | the Open-Meteo MCP server for the weather agent | homelab server |
 | `homeassistant/` | Home Assistant on the host network | homelab server |
 | `satellite/` | one voice satellite | a Raspberry Pi or another device in a room |
 
@@ -17,7 +18,7 @@ The agents in `ambrogio/agents/` use these services:
 | `generic` | general knowledge only |
 | `home-assistant` | the "Model Context Protocol Server" integration of Home Assistant |
 | `memory` | the backend's own MCP server at `/mcp/memory`, to search past conversations |
-| `weather` | the `open-meteo-mcp` container |
+| `weather` | the `open-meteo-mcp` container, on the `homelab_mcp` network |
 | `web-search` | the public MCP server of [Parallel](https://parallel.ai/) |
 
 All of them use Mistral AI models; any provider of the [agent configuration](https://ambrogio-app.github.io/ambrogio-docs/reference/agent-configuration/) works.
@@ -34,11 +35,14 @@ On the homelab server, from the root of this repository:
 1. Copy `.env.example` to `.env` and fill in every value.
 2. In `ambrogio/web/config.json`, set `backendUrl` to `https://` followed by your `AMBROGIO_DOMAIN`.
 3. In `ambrogio/agents/weather.json`, replace `HOME_TOWN` with the town used when nobody names a place.
-4. Create the network the proxy shares with the services, then start the services in this order:
+4. Create the network the proxy shares with the services and the one of the MCP servers, then start the services in
+   this order, the MCP servers before the backend:
 
    ```bash
    docker network create homelab_proxy
+   docker network create homelab_mcp
    docker compose --env-file .env -f homeassistant/docker-compose.yml up -d
+   docker compose --env-file .env -f open-meteo-mcp/docker-compose.yml up -d
    docker compose --env-file .env -f ambrogio/docker-compose.yml up -d
    docker compose --env-file .env -f proxy/docker-compose.yml up -d
    ```
@@ -49,7 +53,7 @@ On the homelab server, from the root of this repository:
 
 The backend connects to the MCP server of each agent once, right after it starts listening. An agent whose server
 does not answer stays unavailable until the backend restarts, with an `agent_mcp_unavailable` line in its log: start
-Home Assistant before the backend, or restart the backend once Home Assistant is up.
+Home Assistant and `open-meteo-mcp` before the backend, or restart the backend once they are up.
 
 Point `AMBROGIO_DOMAIN` to the homelab server in your home DNS. Caddy issues the certificate from its own local
 authority: install Caddy's root certificate, `/data/caddy/pki/authorities/local/root.crt` in the `caddy-data`

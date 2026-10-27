@@ -1,0 +1,16 @@
+# Open-Meteo MCP server for the weather agent. It is reachable only on the network of the MCP servers, which the
+# backend joins; the token protects it and the weather agent sends it as a Bearer token.
+services:
+  open-meteo-mcp:
+    image: ghcr.io/cmer81/open-meteo-mcp:2.5.1
+    container_name: open-meteo-mcp
+    restart: unless-stopped
+    environment:
+      API_KEY: ${OPEN_METEO_MCP_TOKEN:?Set OPEN_METEO_MCP_TOKEN}
+    networks:
+      - mcp
+
+networks:
+  mcp:
+    name: homelab_mcp
+    external: true
