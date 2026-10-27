@@ -1,0 +1,62 @@
+# OpenCloud, the file cloud of the family, with Apache Tika to extract the text of the documents, so that its
+# search also finds the words inside PDFs and office documents. The files agent of Ambrogio reads it through
+# opencloud-mcp.
+services:
+  opencloud:
+    image: opencloudeu/opencloud:7.2.4
+    container_name: opencloud
+    restart: unless-stopped
+    entrypoint: ["/bin/sh"]
+    # The first start writes the configuration; Docker does not wait for Tika after a reboot, so the server does.
+    command:
+      - -c
+      - >-
+        i=0; until wget -q -O /dev/null http://opencloud-tika:9998/version || [ $$i -ge 60 ]; do i=$$((i+1)); sleep 2; done;
+        opencloud init || true; opencloud server
+    environment:
+      OC_URL: https://${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
+      PROXY_HTTP_ADDR: 0.0.0.0:9200
+      PROXY_TLS: "false"
+      # The certificate comes from Caddy's local authority, which OpenCloud does not trust by itself.
+      OC_INSECURE: "true"
+      IDM_ADMIN_PASSWORD: ${OPENCLOUD_ADMIN_PASSWORD:?Set OPENCLOUD_ADMIN_PASSWORD}
+      OC_LOG_LEVEL: warn
+      SEARCH_EXTRACTOR_TYPE: tika
+      SEARCH_EXTRACTOR_TIKA_TIKA_URL: http://opencloud-tika:9998
+      FRONTEND_FULL_TEXT_SEARCH_ENABLED: "true"
+    depends_on:
+      tika:
+        condition: service_healthy
+    volumes:
+      - opencloud-config:/etc/opencloud
+      - opencloud-data:/var/lib/opencloud
+    networks:
+      - proxy
+      - opencloud-internal
+
+  # The base image of Tika: the -full one adds OCR and is much larger. Tika 4 no longer has the /language endpoint
+  # that OpenCloud uses to drop stop words, so the example stays on the 3.x line.
+  tika:
+    image: apache/tika:3.3.3.0
+    container_name: opencloud-tika
+    restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9998 && printf 'GET /tika HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - opencloud-internal
+
+volumes:
+  opencloud-config:
+  opencloud-data:
+
+networks:
+  proxy:
+    name: homelab_proxy
+    external: true
+  opencloud-internal:
+    name: homelab_opencloud-internal

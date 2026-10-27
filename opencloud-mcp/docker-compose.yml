@@ -1,0 +1,26 @@
+# opencloud-mcp, a read-only MCP server for the files agent: it searches and reads what the OpenCloud user
+# "ambrogio" can see, the space "Family". It is not part of Ambrogio: see https://github.com/adrianofoschi/opencloud-mcp.
+# It reaches OpenCloud and Tika on the network of OpenCloud, which starts first, and the backend on homelab_mcp.
+services:
+  opencloud-mcp:
+    image: ghcr.io/adrianofoschi/opencloud-mcp:v0.2.0
+    container_name: opencloud-mcp
+    restart: unless-stopped
+    environment:
+      OPENCLOUD_URL: http://opencloud:9200
+      OPENCLOUD_HOST: ${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
+      OPENCLOUD_USER: ambrogio
+      OPENCLOUD_APP_TOKEN: ${OPENCLOUD_MCP_APP_TOKEN:?Set OPENCLOUD_MCP_APP_TOKEN}
+      TIKA_URL: http://opencloud-tika:9998
+      MCP_TOKEN: ${OPENCLOUD_MCP_TOKEN:?Set OPENCLOUD_MCP_TOKEN}
+    networks:
+      - mcp
+      - opencloud-internal
+
+networks:
+  mcp:
+    name: homelab_mcp
+    external: true
+  opencloud-internal:
+    name: homelab_opencloud-internal
+    external: true

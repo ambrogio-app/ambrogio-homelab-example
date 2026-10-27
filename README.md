@@ -8,6 +8,8 @@ file per service, as a starting point for your own homelab:
 | `proxy/` | Caddy: `/api/*` to the backend, everything else to the web chat | homelab server |
 | `ambrogio/` | backend, its PostgreSQL archive and the web chat | homelab server |
 | `open-meteo-mcp/` | the Open-Meteo MCP server for the weather agent | homelab server |
+| `opencloud/` | OpenCloud, the family's file cloud, with Apache Tika to extract the text of documents | homelab server |
+| `opencloud-mcp/` | a read-only MCP server for OpenCloud, used by the files agent | homelab server |
 | `homeassistant/` | Home Assistant on the host network | homelab server |
 | `satellite/` | one voice satellite | a Raspberry Pi or another device in a room |
 
@@ -15,49 +17,149 @@ The agents in `ambrogio/agents/` use these services:
 
 | Agent | Uses |
 |---|---|
+| `files` | the `opencloud-mcp` container, on the `homelab_mcp` network |
 | `generic` | general knowledge only |
 | `home-assistant` | the "Model Context Protocol Server" integration of Home Assistant |
 | `memory` | the backend's own MCP server at `/mcp/memory`, to search past conversations |
 | `weather` | the `open-meteo-mcp` container, on the `homelab_mcp` network |
 | `web-search` | the public MCP server of [Parallel](https://parallel.ai/) |
 
-All of them use Mistral AI models; any provider of the [agent configuration](https://ambrogio-app.github.io/ambrogio-docs/reference/agent-configuration/) works.
+The orchestrator chooses one of them for each request. All of them use Mistral AI models; any provider of the [agent configuration](https://ambrogio-app.github.io/ambrogio-docs/reference/agent-configuration/) works.
 
 > **This is an example, not a release.** It is not updated with every release of Ambrogio. It was written for
 > backend `v0.17.0`, web chat `v0.3.1` and satellite `v0.8.1`; before using another release, read its notes in
 > [Versions and compatibility](https://ambrogio-app.github.io/ambrogio-docs/reference/versions/) and adapt the
 > files. The documentation is the reference for every field and variable.
 
+## How it works
+
+```mermaid
+flowchart LR
+    subgraph home["In the home"]
+        browser["Browser"]
+        satellite["Voice satellite<br/>satellite/"]
+    end
+
+    subgraph server["Homelab server"]
+        caddy["Caddy<br/>proxy/"]
+        web["Web chat"]
+
+        subgraph backend["Ambrogio backend, ambrogio/"]
+            orchestrator{{"orchestrator"}}
+            generic["generic"]
+            homeassistant["home-assistant"]
+            weather["weather"]
+            websearch["web-search"]
+            memory["memory"]
+            files["files"]
+        end
+
+        subgraph services["Tools of the agents"]
+            ha["Home Assistant<br/>homeassistant/"]
+            openmeteo["open-meteo-mcp<br/>open-meteo-mcp/"]
+            memoryserver["/mcp/memory<br/>of the backend"]
+            ocmcp["opencloud-mcp<br/>opencloud-mcp/"]
+        end
+
+        postgres[("PostgreSQL<br/>conversations")]
+        opencloud["OpenCloud<br/>space Family<br/>opencloud/"]
+        tika["Tika<br/>opencloud/"]
+    end
+
+    subgraph internet["Internet"]
+        mistral(["Mistral AI<br/>models of all agents"])
+        parallel(["Parallel"])
+        meteo(["Open-Meteo API"])
+    end
+
+    browser -- "HTTPS" --> caddy
+    caddy -- "everything else" --> web
+    caddy -- "/api/*" --> orchestrator
+    caddy -- "OpenCloud domain" --> opencloud
+    satellite -- "port 3000" --> orchestrator
+    orchestrator --> generic & homeassistant & weather & websearch & memory & files
+    generic --> mistral
+    homeassistant --> ha
+    weather --> openmeteo --> meteo
+    websearch --> parallel
+    memory --> memoryserver --> postgres
+    files --> ocmcp
+    ocmcp -- "as user ambrogio" --> opencloud
+    ocmcp -- "document text" --> tika
+    opencloud -- "full-text index" --> tika
+```
+
+A request, typed in the web chat or spoken to a satellite, reaches the backend: the web chat through Caddy, the
+satellite directly on port `3000`. The satellite turns speech into text and the answer back into speech on the
+device. The orchestrator picks the agent whose description fits the request. The agent asks its Mistral AI model,
+calls the tools of its MCP server as many times as it needs within `maxToolCalls`, and answers. The backend stores
+every answered turn in PostgreSQL, where the memory agent can find it later.
+
 ## Start
 
 On the homelab server, from the root of this repository:
 
 1. Copy `.env.example` to `.env` and fill in every value.
-2. In `ambrogio/web/config.json`, set `backendUrl` to `https://` followed by your `AMBROGIO_DOMAIN`.
-3. In `ambrogio/agents/weather.json`, replace `HOME_TOWN` with the town used when nobody names a place.
-4. Create the network the proxy shares with the services and the one of the MCP servers, then start the services in
-   this order, the MCP servers before the backend:
+2. Point `AMBROGIO_DOMAIN` and `OPENCLOUD_DOMAIN` to the homelab server in your home DNS.
+3. In `ambrogio/web/config.json`, set `backendUrl` to `https://` followed by your `AMBROGIO_DOMAIN`.
+4. In `ambrogio/agents/weather.json`, replace `HOME_TOWN` with the town used when nobody names a place.
+5. Create the network the proxy shares with the services and the one of the MCP servers, then start the services in
+   this order, the MCP servers before the backend. `opencloud-mcp` starts in step 7, once it has its app password.
 
    ```bash
    docker network create homelab_proxy
    docker network create homelab_mcp
    docker compose --env-file .env -f homeassistant/docker-compose.yml up -d
    docker compose --env-file .env -f open-meteo-mcp/docker-compose.yml up -d
+   docker compose --env-file .env -f opencloud/docker-compose.yml up -d
    docker compose --env-file .env -f ambrogio/docker-compose.yml up -d
    docker compose --env-file .env -f proxy/docker-compose.yml up -d
    ```
 
-5. In Home Assistant, add the "Model Context Protocol Server" integration, expose to Assist the entities Ambrogio may
+6. In Home Assistant, add the "Model Context Protocol Server" integration, expose to Assist the entities Ambrogio may
    use, create a long-lived access token and put it in `HOME_ASSISTANT_TOKEN`. Then restart the backend:
    `docker compose --env-file .env -f ambrogio/docker-compose.yml restart ambrogio`.
+7. Prepare OpenCloud for the files agent, as described in [Documents in OpenCloud](#documents-in-opencloud), put the
+   app password in `OPENCLOUD_MCP_APP_TOKEN`, then start `opencloud-mcp` and restart the backend:
+
+   ```bash
+   docker compose --env-file .env -f opencloud-mcp/docker-compose.yml up -d
+   docker compose --env-file .env -f ambrogio/docker-compose.yml restart ambrogio
+   ```
 
 The backend connects to the MCP server of each agent once, right after it starts listening. An agent whose server
 does not answer stays unavailable until the backend restarts, with an `agent_mcp_unavailable` line in its log: start
-Home Assistant and `open-meteo-mcp` before the backend, or restart the backend once they are up.
+Home Assistant and the MCP servers before the backend, or restart the backend once they are up.
 
-Point `AMBROGIO_DOMAIN` to the homelab server in your home DNS. Caddy issues the certificate from its own local
+Caddy issues the certificates from its own local
 authority: install Caddy's root certificate, `/data/caddy/pki/authorities/local/root.crt` in the `caddy-data`
 volume, on the family's devices, or replace `tls internal` in `proxy/Caddyfile` with a certificate for a public domain.
+
+## Documents in OpenCloud
+
+The `files` agent searches and reads the family's documents, such as bills, contracts and payslips, and answers
+with a link to each document it used. It goes through
+[opencloud-mcp](https://github.com/adrianofoschi/opencloud-mcp), an independent MCP server that is not part of
+Ambrogio, with two read-only tools: `search_files`, which searches names and the text Tika extracted, and
+`read_file`, which returns the text of one file.
+
+The server logs in as an OpenCloud user named `ambrogio`, which sees only what is shared with it. Put the documents
+for Ambrogio in one space:
+
+1. Sign in to `https://` followed by your `OPENCLOUD_DOMAIN` as `admin`, with `OPENCLOUD_ADMIN_PASSWORD`.
+2. In the user management, create the user `ambrogio` and the accounts of the family.
+3. Create a space, for example "Family", add the family as members who can edit and `ambrogio` with the role
+   **Can view**. Copy the documents into it: OpenCloud copies files between spaces, it does not move them.
+4. Create an app password for `ambrogio`. It cannot be created without an expiry, so the example gives it 100 years:
+
+   ```bash
+   docker exec opencloud opencloud auth-app create --user-name=ambrogio --expiration=876000h
+   ```
+
+   The command prints `token:` followed by several words separated by spaces: the whole phrase is the password. In
+   `.env`, write it in single quotes.
+
+The text of a new document becomes searchable once Tika has indexed it, usually within a minute.
 
 ## Satellite
 
@@ -69,8 +171,14 @@ the variables of the [satellite configuration](https://ambrogio-app.github.io/am
 ## What stays private
 
 The backend has no accounts: anyone who reaches it can talk to it. Keep port `3000` and the domain inside the home
-network, or behind a VPN. `/mcp/memory` is not forwarded by the proxy. The data live in Docker volumes: back up
-`ambrogio-database` with `pg_dump` and `homeassistant-config` as Home Assistant explains. Never commit `.env` or
+network, or behind a VPN. `/mcp/memory` is not forwarded by the proxy.
+
+Whatever the user `ambrogio` can read in OpenCloud, anyone in the family can read by asking Ambrogio, and the
+links in its answers open for every member of the space. Keep personal documents out of the space. The text the
+files agent reads is sent to the provider of its model. The app password works like a permanent credential:
+revoke it in OpenCloud if it leaks. The data live in Docker volumes: back up
+`ambrogio-database` with `pg_dump`, `homeassistant-config` as Home Assistant explains, and `opencloud-config` and
+`opencloud-data` with OpenCloud stopped. Never commit `.env` or
 `satellite.env`.
 
 ## Checks
