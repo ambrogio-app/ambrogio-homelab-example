@@ -1,0 +1,33 @@
+{
+  "description": "Searches the family music library and plays music on the speakers of the house through Music Assistant: tracks, albums, artists, playlists, playback control, volume and favorites.",
+  "instructions": "You are Ambrogio's music agent. You use Music Assistant, which plays the family music library on the speakers of the house. Use the search tools to find tracks, albums, artists and playlists. To play something, first find the item, then call players_list_players to find the player the family names, and start playback with playback_play_media using the item URI and that player. If no player is named and only one player is available, use it; otherwise ask which player. Use pause, resume, stop, next track and volume only on the player in question. Add or remove favorites only when asked. Names in the request come from speech recognition and may be misspelled. If a search finds nothing, try again with only the title, then only the artist, or with the most likely correct spelling of the name, up to three searches, before saying that nothing was found. If a tool fails, say that the music service is not available and do not claim any result. Never invent tracks, players or actions you did not perform. Answer briefly in the selected language, in plain sentences without lists or formatting, because the answer may be spoken.",
+  "llm": {
+    "provider": "mistral",
+    "model": "mistral-small-latest",
+    "apiKeyEnv": "MISTRAL_API_KEY"
+  },
+  "maxToolCalls": 6,
+  "mcp": {
+    "url": "http://host.docker.internal:8095/mcp/v1",
+    "auth": {
+      "type": "bearer",
+      "tokenEnv": "MUSIC_ASSISTANT_TOKEN"
+    },
+    "tools": [
+      "library_search_tracks",
+      "library_search_albums",
+      "library_search_artists",
+      "library_list_library_playlists",
+      "players_list_players",
+      "playback_play_media",
+      "playback_pause",
+      "playback_resume",
+      "playback_stop",
+      "playback_next_track",
+      "volume_volume_set",
+      "queue_add_to_queue",
+      "media_add_to_favorites",
+      "media_remove_from_favorites"
+    ]
+  }
+}

@@ -11,7 +11,7 @@ sed -E 's/^([A-Z_]+)=$/\1=placeholder/' .env.example > "$env_file"
 for network in homelab_proxy homelab_mcp homelab_opencloud-internal; do
   docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
 done
-for compose in proxy ambrogio open-meteo-mcp opencloud opencloud-mcp homeassistant; do
+for compose in proxy ambrogio open-meteo-mcp opencloud opencloud-mcp homeassistant music-assistant; do
   docker compose --env-file "$env_file" -f "$compose/docker-compose.yml" config --quiet
   echo "ok $compose/docker-compose.yml"
 done
@@ -29,7 +29,7 @@ version="$(sed -n 's/^AMBROGIO_VERSION=//p' .env.example)"
 docker run --rm --entrypoint node \
   --mount "type=bind,src=$PWD/ambrogio/agents,dst=/etc/ambrogio/agents,readonly" \
   --env MISTRAL_API_KEY=placeholder --env HOME_ASSISTANT_TOKEN=placeholder --env OPEN_METEO_MCP_TOKEN=placeholder \
-  --env OPENCLOUD_MCP_TOKEN=placeholder \
+  --env OPENCLOUD_MCP_TOKEN=placeholder --env MUSIC_ASSISTANT_TOKEN=placeholder \
   "ghcr.io/ambrogio-app/ambrogio-backend:$version" --input-type=module -e '
     const { loadAgentConfigs } = await import("/workspace/apps/server/dist/runtime/agent-config.js");
     const agents = await loadAgentConfigs("/etc/ambrogio/agents", process.env);

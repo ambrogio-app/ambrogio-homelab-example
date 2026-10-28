@@ -14,3 +14,14 @@
 	tls internal
 	reverse_proxy opencloud:9200
 }
+
+# Home Assistant and Music Assistant run on the host network, so the proxy reaches them on the host.
+{$HOME_ASSISTANT_DOMAIN} {
+	tls internal
+	reverse_proxy host.docker.internal:8123
+}
+
+{$MUSIC_ASSISTANT_DOMAIN} {
+	tls internal
+	reverse_proxy host.docker.internal:8095
+}

@@ -1,5 +1,5 @@
 # Reverse proxy for the browsers of the home. /api/* (HTTP and WebSocket) goes to the backend, everything
-# else to the web chat, so both share one origin. The certificate comes from Caddy's local authority:
+# else to the web chat, so both share one origin; OpenCloud, Home Assistant and Music Assistant have their own domains. The certificate comes from Caddy's local authority:
 # install its root certificate on the family's devices, or replace `tls internal` with your own setup.
 services:
   caddy:
@@ -9,6 +9,11 @@ services:
     environment:
       AMBROGIO_DOMAIN: ${AMBROGIO_DOMAIN:?Set AMBROGIO_DOMAIN}
       OPENCLOUD_DOMAIN: ${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
+      HOME_ASSISTANT_DOMAIN: ${HOME_ASSISTANT_DOMAIN:?Set HOME_ASSISTANT_DOMAIN}
+      MUSIC_ASSISTANT_DOMAIN: ${MUSIC_ASSISTANT_DOMAIN:?Set MUSIC_ASSISTANT_DOMAIN}
+    # Home Assistant and Music Assistant run on the host network: the proxy reaches them as host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "80:80"
       - "443:443"
