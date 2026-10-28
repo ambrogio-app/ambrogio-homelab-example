@@ -1,0 +1,24 @@
+# Music Assistant plays the family's music library on the speakers of the home. It runs on the host network to
+# discover the players and stream to them (ports 3483 and 8097); its web interface and the MCP server of its
+# FastMCP Server plugin are on port 8095. Ambrogio uses the MCP server at http://host.docker.internal:8095/mcp/v1;
+# browsers reach the web interface through the proxy, at MUSIC_ASSISTANT_DOMAIN.
+services:
+  music-assistant:
+    image: ghcr.io/music-assistant/server:2.10.7
+    container_name: music-assistant
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LOG_LEVEL: warning
+    volumes:
+      - music-assistant-data:/data
+      # The Local Files provider of Music Assistant reads the library from /music.
+      - type: bind
+        source: ${MUSIC_LIBRARY_DIR:?Set MUSIC_LIBRARY_DIR}
+        target: /music
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  music-assistant-data:
