@@ -4,7 +4,7 @@
 
 # Ambrogio homelab example
 
-**Ambrogio**: talk to it like Alexa, chat with it like ChatGPT — one self-hosted AI assistant for your whole homelab. Multi-agent by design: each agent you configure handles one job, such as the house, music, weather or your documents, using the services you already host.
+**Ambrogio**: talk to it like Alexa, chat with it like ChatGPT. One self-hosted AI assistant for your whole homelab. Multi-agent by design: each agent you configure handles one job, such as the house, music, weather or your documents, using the services you already host.
 
 A complete home installation of [Ambrogio](https://ambrogio-app.github.io/ambrogio-docs/), one Docker Compose
 file per service, as a starting point for your own homelab:
