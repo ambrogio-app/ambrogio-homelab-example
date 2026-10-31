@@ -1,8 +1,10 @@
 #!/bin/sh
 # Blocks commits that add secrets. Enable once per clone with:
 #   git config core.hooksPath .githooks
-if ! command -v gitleaks >/dev/null 2>&1; then
-  echo "pre-commit: gitleaks is not on PATH. Install gitleaks 8.30.1 to commit in this repository." >&2
+required=8.30.1
+if ! command -v gitleaks >/dev/null 2>&1 || [ "$(gitleaks version 2>/dev/null)" != "$required" ]; then
+  echo "pre-commit: gitleaks $required is not on PATH. Install gitleaks $required (https://github.com/gitleaks/gitleaks/releases/tag/v$required) to commit in this repository." >&2
   exit 1
 fi
-exec gitleaks git --pre-commit --staged --redact --no-banner .
+# --ignore-gitleaks-allow: an inline gitleaks:allow comment never hides a finding.
+exec gitleaks git --pre-commit --staged --redact --no-banner --ignore-gitleaks-allow .
